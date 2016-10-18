@@ -8,6 +8,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.concurrent.CountDownLatch;
 import java.util.prefs.Preferences;
@@ -23,6 +26,7 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.concurrent.FutureCallback;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.cookie.Cookie;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
@@ -31,6 +35,7 @@ import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.impl.nio.client.HttpAsyncClients;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONObject;
 
@@ -42,7 +47,7 @@ import portfolio.models.User;
  */
 public class PortfolioWebManager 
 {			
-    public static void main( String[] args ) throws InterruptedException, ClientProtocolException, IOException
+    public static void main( String[] args ) throws InterruptedException, ClientProtocolException, IOException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException
     {
     	boolean loggedIn = false;    	
     	RequestConfig globalConfig = RequestConfig.custom()
@@ -54,7 +59,10 @@ public class PortfolioWebManager
     		loggedIn = PortfolioWebManager.checkLoggedIn(cookieStore);
     	HttpClientContext context = HttpClientContext.create();
         context.setCookieStore(cookieStore);
+        SSLContextBuilder builder = new SSLContextBuilder();
+        builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
     	CloseableHttpAsyncClient httpclient = HttpAsyncClients.custom()
+    			.setSSLContext(builder.build())
     			.setDefaultRequestConfig(globalConfig)
                 .setDefaultCookieStore(cookieStore)
                 .build();
@@ -63,9 +71,11 @@ public class PortfolioWebManager
     		PortfolioWebManager.login(httpclient, context);
     	else
     	{
-    		PortfolioWebManager.getPreferences(User.getInstance()); //not async
-    		System.out.println(User.getInstance().toString());
-    		PortfolioWebManager.upload(httpclient, context);
+    		//PortfolioWebManager.getPreferences(User.getInstance()); //not async
+    		//System.out.println(User.getInstance().toString());
+    		//PortfolioWebManager.upload(httpclient, context);
+    		System.out.println("Está logado");
+    		PortfolioWebManager.login(httpclient, context);
     	}
     }
     
@@ -95,7 +105,7 @@ public class PortfolioWebManager
         	    json.toString(),
         	    ContentType.APPLICATION_JSON);
                 
-        HttpPost postMethod = new HttpPost("http://localhost:8080/login");
+        HttpPost postMethod = new HttpPost("https://107.170.37.38/login");
         postMethod.setEntity(requestEntity);
         
         final CountDownLatch latch = new CountDownLatch(1);
@@ -241,7 +251,7 @@ public class PortfolioWebManager
         
     public static void upload(CloseableHttpAsyncClient httpClient, HttpClientContext context) throws ClientProtocolException, IOException, InterruptedException
     {
-        HttpPost httppost = new HttpPost("http://localhost:8080" +
+        HttpPost httppost = new HttpPost("https://107.170.37.38" +
                 "/login/uploadfile/57f845f0f7f6f3d1c4393820");
 
         FileBody bin = new FileBody(new File("test.txt"));

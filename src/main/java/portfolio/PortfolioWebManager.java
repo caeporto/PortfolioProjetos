@@ -15,6 +15,7 @@ import java.util.Date;
 import java.util.concurrent.CountDownLatch;
 import java.util.prefs.Preferences;
 import java.util.List;
+import java.util.Scanner;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -23,6 +24,7 @@ import org.apache.http.ParseException;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.concurrent.FutureCallback;
@@ -37,9 +39,12 @@ import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import portfolio.models.User;
+import portfolio.models.Project;
+import portfolio.util.Util;
 
 /**
  * Hello world!
@@ -68,22 +73,123 @@ public class PortfolioWebManager
                 .build();
     	httpclient.start();
     	if(!loggedIn)
+    	{
+    		System.out.println("Voce nao esta logado");
     		PortfolioWebManager.login(httpclient, context);
+    	}
     	else
     	{
+    		System.out.println("Voce esta logado");
+    		//retrieving user
+    		User.getInstance().getPreferences();
+    		if(User.getInstance().usertype == User.UserType.PortfolioManager.getValue())
+    		{
+    			Scanner sc = new Scanner(System.in);
+    			Integer read = -1;
+    			do {
+		    		System.out.println("(1) Meus Projetos");
+		    		System.out.println("(2) Meus Programas");
+		    		System.out.println("(3) Cadastrar Projeto");
+		    		System.out.println("(4) Criar Programa");
+		    		System.out.println("(5) Sair");
+	
+		    		read = sc.nextInt();
+		    		switch(read)
+		    		{
+		    		case 1:
+		    			if(User.getInstance().projects.size() == 0)
+		    			{
+			    			List<String> projects = User.getInstance().ref_projects;
+			    	        final CountDownLatch latch = new CountDownLatch(projects.size());
+			    	        for(String id : projects)
+			    	        {
+			    	        	PortfolioWebManager.getProject(httpclient, context, latch, id);
+			    	        	latch.await();
+			    	        }
+			    	        for(Project p : User.getInstance().projects)
+			    	        {
+			    	        	System.out.println(p.toString());
+			    	        }
+		    			}
+		    			else
+		    			{
+		    				for(Project p : User.getInstance().projects)
+			    	        {
+			    	        	System.out.println(p.toString());
+			    	        }
+		    			}
+		    		}
+		    		
+    			}while(read != 5);
+	    		
+	    		sc.close();
+    		}
+
     		//PortfolioWebManager.getPreferences(User.getInstance()); //not async
     		//System.out.println(User.getInstance().toString());
     		//PortfolioWebManager.upload(httpclient, context);
-    		System.out.println("Está logado");
-    		PortfolioWebManager.login(httpclient, context);
+    		//System.out.println("Está logado");
+    		//PortfolioWebManager.login(httpclient, context);
     	}
+    }
+    
+    public static JSONObject getProject(CloseableHttpAsyncClient httpClient, HttpClientContext context, CountDownLatch latch, String projectId)
+    {
+    	HttpGet getMethod = new HttpGet(Util.LOGIN_MYPROJECT+projectId);
+
+    	httpClient.execute(getMethod, context, new FutureCallback<HttpResponse>(){
+
+			@Override
+			public void cancelled() {
+				// TODO Auto-generated method stub
+				 latch.countDown();
+			}
+
+			@Override
+			public void completed(HttpResponse response) {
+				// TODO Auto-generated method stub
+				latch.countDown();
+				int code = response.getStatusLine().getStatusCode();
+                if(code == HttpStatus.SC_OK)
+                {
+	                HttpEntity entity = response.getEntity();
+	                try {
+						String responseString = EntityUtils.toString(entity, "UTF-8");
+						JSONObject json = new JSONObject(responseString);
+						Project project = new Project();
+						try {
+							project.readJSON(json);
+							User.getInstance().projects.add(project);
+						} catch (JSONException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						} catch (java.text.ParseException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					} catch (ParseException | IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+                }
+			}
+
+			@Override
+			public void failed(Exception arg0) {
+				// TODO Auto-generated method stub
+				 latch.countDown();
+			}
+    		
+    	});
+    	
+    	return null;
     }
     
     public static boolean checkLoggedIn(BasicCookieStore store){
     	Date now = new Date();
     	for(Cookie cookie : store.getCookies())
     	{
-    		System.out.println("Cookie: "+cookie.getName());
+    		//System.out.println("Cookie: "+cookie.getName());
     		if(cookie.getName().equals("connect.sid"))
     		{
     			if(cookie.isExpired(now))
@@ -105,7 +211,7 @@ public class PortfolioWebManager
         	    json.toString(),
         	    ContentType.APPLICATION_JSON);
                 
-        HttpPost postMethod = new HttpPost("https://107.170.37.38/login");
+        HttpPost postMethod = new HttpPost(Util.LOGIN);
         postMethod.setEntity(requestEntity);
         
         final CountDownLatch latch = new CountDownLatch(1);
@@ -124,7 +230,7 @@ public class PortfolioWebManager
 						User.getInstance().readJSON(json);
 						System.out.println(User.getInstance().toString());
 				    	//save preferences
-				    	PortfolioWebManager.savePreferences(User.getInstance());
+						User.getInstance().savePreferences();
 				    	PortfolioWebManager.saveCookies((BasicCookieStore) context.getCookieStore());
 					} catch (ParseException | IOException e) {
 						// TODO Auto-generated catch block
@@ -144,45 +250,6 @@ public class PortfolioWebManager
 
         });
         latch.await();
-    }
-    
-    public static void savePreferences(User user){
-    	Preferences prefs = Preferences.userNodeForPackage(portfolio.models.User.class);
-    	for(String field : User.fields)
-    	{
-    		if(field.equals("email"))
-				prefs.put(field, user.email);
-			else if(field.equals("usertype"))
-				prefs.putInt(field, user.usertype);
-			else if(field.equals("username"))
-				prefs.put(field, user.username);
-			else if(field.equals("available_work_load"))
-				prefs.putDouble(field, user.availableWorkLoad);
-			else if(field.equals("possible_roles"))
-				prefs.putByteArray(field, PortfolioWebManager.serializeObject(user.possibleRoles));
-			else if(field.equals("projects"))
-				prefs.putByteArray(field, PortfolioWebManager.serializeObject(user.projects));
-    	}
-    }
-    
-    @SuppressWarnings("unchecked")
-	public static void getPreferences(User user){
-    	Preferences prefs = Preferences.userNodeForPackage(portfolio.models.User.class);
-    	for(String field : User.fields)
-    	{
-    		if(field.equals("email"))
-				user.email = prefs.get(field, "");
-			else if(field.equals("usertype"))
-				user.usertype = prefs.getInt(field, -1);
-			else if(field.equals("username"))
-				user.username = prefs.get(field, "");
-			else if(field.equals("available_work_load"))
-				user.availableWorkLoad = prefs.getDouble(field, -1);
-			else if(field.equals("possible_roles"))
-				user.possibleRoles = (List<String>) PortfolioWebManager.deserializeObject(prefs.getByteArray(field, null));
-			else if(field.equals("projects"))
-				user.projects = (List<String>) PortfolioWebManager.deserializeObject(prefs.getByteArray(field, null));
-    	}
     }
     
     public static byte[] serializeObject(Object obj)
@@ -221,7 +288,7 @@ public class PortfolioWebManager
     
     public static void saveCookies(BasicCookieStore store){
 		try {
-			FileOutputStream fileOut = new FileOutputStream("cookies.ser");
+			FileOutputStream fileOut = new FileOutputStream(Util.COOKIE_FILE);
 			ObjectOutputStream out = new ObjectOutputStream(fileOut);
 			out.writeObject(store);
 			out.close();
@@ -234,7 +301,7 @@ public class PortfolioWebManager
     
     public static BasicCookieStore retrieveCookies(){
 		try {
-			 FileInputStream fileIn = new FileInputStream("cookies.ser");
+			 FileInputStream fileIn = new FileInputStream(Util.COOKIE_FILE);
 	         ObjectInputStream in = new ObjectInputStream(fileIn);
 	         BasicCookieStore store = (BasicCookieStore) in.readObject();
 	         in.close();
@@ -251,8 +318,7 @@ public class PortfolioWebManager
         
     public static void upload(CloseableHttpAsyncClient httpClient, HttpClientContext context) throws ClientProtocolException, IOException, InterruptedException
     {
-        HttpPost httppost = new HttpPost("https://107.170.37.38" +
-                "/login/uploadfile/57f845f0f7f6f3d1c4393820");
+        HttpPost httppost = new HttpPost(Util.LOGIN_UPLOADFILE+"57f845f0f7f6f3d1c4393820");
 
         FileBody bin = new FileBody(new File("test.txt"));
 

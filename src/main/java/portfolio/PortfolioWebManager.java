@@ -13,7 +13,6 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.concurrent.CountDownLatch;
-import java.util.prefs.Preferences;
 import java.util.List;
 import java.util.Scanner;
 
@@ -44,12 +43,9 @@ import org.json.JSONObject;
 
 import portfolio.models.User;
 import portfolio.models.Project;
+import portfolio.models.Program;
 import portfolio.util.Util;
 
-/**
- * Hello world!
- *
- */
 public class PortfolioWebManager 
 {			
     public static void main( String[] args ) throws InterruptedException, ClientProtocolException, IOException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException
@@ -76,66 +72,91 @@ public class PortfolioWebManager
     	{
     		System.out.println("Voce nao esta logado");
     		PortfolioWebManager.login(httpclient, context);
+    		//System.out.println(User.getInstance().email);
     	}
     	else
     	{
-    		System.out.println("Voce esta logado");
     		//retrieving user
     		User.getInstance().getPreferences();
-    		if(User.getInstance().usertype == User.UserType.PortfolioManager.getValue())
-    		{
-    			Scanner sc = new Scanner(System.in);
-    			Integer read = -1;
-    			do {
-		    		System.out.println("(1) Meus Projetos");
-		    		System.out.println("(2) Meus Programas");
-		    		System.out.println("(3) Cadastrar Projeto");
-		    		System.out.println("(4) Criar Programa");
-		    		System.out.println("(5) Sair");
-	
-		    		read = sc.nextInt();
-		    		switch(read)
-		    		{
-		    		case 1:
-		    			if(User.getInstance().projects.size() == 0)
-		    			{
-			    			List<String> projects = User.getInstance().ref_projects;
-			    	        final CountDownLatch latch = new CountDownLatch(projects.size());
-			    	        for(String id : projects)
-			    	        {
-			    	        	PortfolioWebManager.getProject(httpclient, context, latch, id);
-			    	        	latch.await();
-			    	        }
-			    	        for(Project p : User.getInstance().projects)
-			    	        {
-			    	        	System.out.println(p.toString());
-			    	        }
-		    			}
-		    			else
-		    			{
-		    				for(Project p : User.getInstance().projects)
-			    	        {
-			    	        	System.out.println(p.toString());
-			    	        }
-		    			}
-		    		}
-		    		
-    			}while(read != 5);
-	    		
-	    		sc.close();
-    		}
-
-    		//PortfolioWebManager.getPreferences(User.getInstance()); //not async
-    		//System.out.println(User.getInstance().toString());
-    		//PortfolioWebManager.upload(httpclient, context);
-    		//System.out.println("Está logado");
-    		//PortfolioWebManager.login(httpclient, context);
     	}
+    	System.out.println("Voce esta logado");
+    	
+		if(User.getInstance().usertype == User.UserType.PortfolioManager.getValue())
+		{
+			Scanner sc = new Scanner(System.in);
+			Integer read = -1;
+			do {
+	    		System.out.println("(1) Meus Projetos");
+	    		System.out.println("(2) Meus Programas");
+	    		System.out.println("(3) Cadastrar Projeto");
+	    		System.out.println("(4) Criar Programa");
+	    		System.out.println("(5) Sair (salvar)");
+
+	    		read = sc.nextInt();
+	    		switch(read)
+	    		{
+	    		case 1:
+	    			if(User.getInstance().projects.size() == 0)
+	    			{
+	    				System.out.println("Begin project get");
+		    			List<String> projects = User.getInstance().ref_projects;
+		    	        for(String id : projects)
+		    	        {
+		    	        	PortfolioWebManager.getProject(httpclient, context, id);
+		    	        }
+		    	        for(Project p : User.getInstance().projects)
+		    	        {
+		    	        	System.out.println(p.name);
+		    	        }
+	    			}
+	    			else
+	    			{
+	    				for(Project p : User.getInstance().projects)
+		    	        {
+		    	        	System.out.println(p.name);
+		    	        }
+	    			}
+	    		break;
+	    		case 2:
+	    			if(User.getInstance().programs.size() == 0)
+	    			{
+	    				System.out.println("Begin program get");
+		    			List<String> programs = User.getInstance().ref_programs;
+		    	        for(String id : programs)
+		    	        {
+		    	        	PortfolioWebManager.getProgram(httpclient, context, id);
+		    	        }
+		    	        for(Program p : User.getInstance().programs)
+		    	        {
+		    	        	System.out.println(p.name);
+		    	        }
+	    			}
+	    			else
+	    			{
+	    				for(Program p : User.getInstance().programs)
+		    	        {
+		    	        	System.out.println(p.name);
+		    	        }
+	    			}
+	    		break;
+	    		case 5:
+	    			//save preferences
+                                User.getInstance().savePreferences();
+			    	PortfolioWebManager.saveCookies((BasicCookieStore) context.getCookieStore());
+			    break;
+	    		}
+	    		
+			}while(read != 5);
+    		
+    		sc.close();
+		}
+		System.exit(1);
     }
     
-    public static JSONObject getProject(CloseableHttpAsyncClient httpClient, HttpClientContext context, CountDownLatch latch, String projectId)
+    public static void getProject(CloseableHttpAsyncClient httpClient, HttpClientContext context, String projectId) throws InterruptedException
     {
     	HttpGet getMethod = new HttpGet(Util.LOGIN_MYPROJECT+projectId);
+    	final CountDownLatch latch = new CountDownLatch(1);
 
     	httpClient.execute(getMethod, context, new FutureCallback<HttpResponse>(){
 
@@ -148,8 +169,8 @@ public class PortfolioWebManager
 			@Override
 			public void completed(HttpResponse response) {
 				// TODO Auto-generated method stub
-				latch.countDown();
 				int code = response.getStatusLine().getStatusCode();
+				//System.out.println("Completed: "+code);
                 if(code == HttpStatus.SC_OK)
                 {
 	                HttpEntity entity = response.getEntity();
@@ -160,6 +181,7 @@ public class PortfolioWebManager
 						try {
 							project.readJSON(json);
 							User.getInstance().projects.add(project);
+							latch.countDown();
 						} catch (JSONException e) {
 							// TODO Auto-generated catch block
 							e.printStackTrace();
@@ -182,7 +204,61 @@ public class PortfolioWebManager
     		
     	});
     	
-    	return null;
+    	latch.await();
+    }
+    
+    public static void getProgram(CloseableHttpAsyncClient httpClient, HttpClientContext context, String programId) throws InterruptedException
+    {
+    	HttpGet getMethod = new HttpGet(Util.LOGIN_MYPROGRAM+programId);
+    	final CountDownLatch latch = new CountDownLatch(1);
+
+    	httpClient.execute(getMethod, context, new FutureCallback<HttpResponse>(){
+
+			@Override
+			public void cancelled() {
+				// TODO Auto-generated method stub
+				 latch.countDown();
+			}
+
+			@Override
+			public void completed(HttpResponse response) {
+				// TODO Auto-generated method stub
+				int code = response.getStatusLine().getStatusCode();
+				//System.out.println("Completed: "+code);
+                if(code == HttpStatus.SC_OK)
+                {
+	                HttpEntity entity = response.getEntity();
+	                try {
+						String responseString = EntityUtils.toString(entity, "UTF-8");
+						JSONObject json = new JSONObject(responseString);
+						Program program = new Program();
+						try {
+							program.readJSON(json);
+							User.getInstance().programs.add(program);
+							latch.countDown();
+						} catch (JSONException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						} catch (java.text.ParseException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					} catch (ParseException | IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+                }
+			}
+
+			@Override
+			public void failed(Exception arg0) {
+				// TODO Auto-generated method stub
+				 latch.countDown();
+			}
+    		
+    	});
+    	
+    	latch.await();
     }
     
     public static boolean checkLoggedIn(BasicCookieStore store){
@@ -218,7 +294,7 @@ public class PortfolioWebManager
         httpClient.execute(postMethod, context, new FutureCallback<HttpResponse>() {
 
             public void completed(final HttpResponse response) {
-                latch.countDown();
+            	//System.out.println("Complete");
                 int code = response.getStatusLine().getStatusCode();
                 if(code == HttpStatus.SC_OK)
                 {
@@ -226,12 +302,13 @@ public class PortfolioWebManager
 	                try {
 						String responseString = EntityUtils.toString(entity, "UTF-8");
 						JSONObject json = new JSONObject(responseString);
-						System.out.println(json.toString());
+						//System.out.println(json.toString());
+						//System.out.println("Before read");
 						User.getInstance().readJSON(json);
-						System.out.println(User.getInstance().toString());
-				    	//save preferences
-						User.getInstance().savePreferences();
-				    	PortfolioWebManager.saveCookies((BasicCookieStore) context.getCookieStore());
+						//System.out.println("After read");
+						//User.getInstance().savePreferences();
+						//System.out.println(User.getInstance().toString());
+		                latch.countDown();
 					} catch (ParseException | IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();

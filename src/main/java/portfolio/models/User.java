@@ -16,6 +16,8 @@ public class User {
 	public String username;
 	public List<String> ref_projects; //obj referencing projects
 	public List<Project> projects; //obj projects
+	public List<String> ref_programs; //obj referencing programs
+	public List<Program> programs; //obj projects
 	public Double availableWorkLoad;
 	public List<String> possibleRoles;
 	
@@ -24,6 +26,8 @@ public class User {
 											"username",
 											"ref_projects",
 											"projects",
+											"ref_programs",
+											"programs",
 											"available_work_load",
 											"possible_roles"
 							 			  };
@@ -40,9 +44,11 @@ public class User {
 	
 	private static User UserInstance = null;
 	
-	private User(){
+	private User(){		
 		ref_projects = new LinkedList<String>();
 		projects = new LinkedList<Project>();
+		ref_programs = new LinkedList<String>();
+		programs = new LinkedList<Program>();
 		possibleRoles = new LinkedList<String>();
 	}
 	
@@ -73,6 +79,14 @@ public class User {
 					projects.add((String) obj);
 				this.ref_projects = projects;
 			}
+			else if(field.equals("programs"))
+			{
+				List<String> programs = new LinkedList<String>();
+				JSONArray array = json.getJSONArray(field);
+				for(Object obj : array)
+					programs.add((String) obj);
+				this.ref_programs = programs;
+			}
 		}
 	}
 	
@@ -94,6 +108,10 @@ public class User {
 				json.put(field, this.projects);
 			else if(field.equals("ref_projects"))
 				json.put(field, this.ref_projects);
+			else if(field.equals("programs"))
+				json.put(field, this.programs);
+			else if(field.equals("ref_programs"))
+				json.put(field, this.ref_programs);
 		}
 		return json;
 	}
@@ -116,12 +134,16 @@ public class User {
 				prefs.put(field, this.username);
 			else if(field.equals("available_work_load"))
 				prefs.putDouble(field, this.availableWorkLoad);
-			else if(field.equals("ref_projects"))
-				prefs.putByteArray(field, PortfolioWebManager.serializeObject(this.ref_projects));
 			else if(field.equals("possible_roles"))
 				prefs.putByteArray(field, PortfolioWebManager.serializeObject(this.possibleRoles));
+			else if(field.equals("ref_projects"))
+				prefs.putByteArray(field, PortfolioWebManager.serializeObject(this.ref_projects));
 			else if(field.equals("projects"))
 				prefs.putByteArray(field, PortfolioWebManager.serializeObject(this.projects));
+			else if(field.equals("ref_programs"))
+				prefs.putByteArray(field, PortfolioWebManager.serializeObject(this.ref_programs));
+			else if(field.equals("programs"))
+				prefs.putByteArray(field, PortfolioWebManager.serializeObject(this.programs));
     	}
     }
     
@@ -144,6 +166,10 @@ public class User {
 				this.ref_projects = (List<String>) PortfolioWebManager.deserializeObject(prefs.getByteArray(field, null));
 			else if(field.equals("projects"))
 				this.projects = (List<Project>) PortfolioWebManager.deserializeObject(prefs.getByteArray(field, null));
+			else if(field.equals("ref_programs"))
+				this.ref_programs = (List<String>) PortfolioWebManager.deserializeObject(prefs.getByteArray(field, null));
+			else if(field.equals("programs"))
+				this.programs = (List<Program>) PortfolioWebManager.deserializeObject(prefs.getByteArray(field, null));
     	}
     }
 	
@@ -151,6 +177,7 @@ public class User {
 		String s = "";
 		String roles = "";
 		String projects = "";
+		String programs = "";
 		for(String role : this.possibleRoles)
 			roles += role + " ";
 		if(this.projects.size() == 0)
@@ -159,12 +186,19 @@ public class User {
 		else
 			for(Project project : this.projects)
 				projects += project.toString() + "\n";
+		if(this.programs.size() == 0)
+			for(String program : this.ref_programs)
+				programs += program + " ";
+		else
+			for(Program program : this.programs)
+				programs += program.toString() + "\n";
 		s += this.email + "\n" +
 			 Integer.toString(this.usertype) + "\n" +
 			 this.username + "\n" +
 			 Double.toString(this.availableWorkLoad) + "\n" +
 			 "[ " + roles + "]" + "\n" +
-			 "[ " + projects + "]" + "\n"
+			 "[ " + projects + "]" + "\n" +
+			 "[ " + programs + "]" + "\n"
 			;
 		return s;
 	}

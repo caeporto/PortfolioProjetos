@@ -1,19 +1,22 @@
 package portfolio.models;
 
+import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class Project {
+public class Project implements Serializable{
 	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 8528302708180555055L;
 	public String name;
 	public String description;
 	public List<String> refHumanResources; //obj referencing users
@@ -29,6 +32,8 @@ public class Project {
 	public List<String> projectFiles; //array com a url dos arquivos
 	public Date beginDate;
 	public Date endDate;
+	public Boolean approved_one;
+	public Boolean approved_two;
 	
 	public static final String[] fields = { "name",
 											"description",
@@ -44,7 +49,9 @@ public class Project {
 											"project_roles",
 											"project_files",
 											"begin_date",
-											"end_date"
+											"end_date",
+											"approved_one",
+											"approved_two"
 										  };
 	
 	public Project(){
@@ -54,6 +61,8 @@ public class Project {
 		projectFiles = new LinkedList<String>();
 		beginDate = new Date();
 		endDate = new Date();
+		approved_one = false;
+		approved_two = false;
 	}
 	
 	public void readJSON(JSONObject json) throws JSONException, ParseException{
@@ -127,7 +136,18 @@ public class Project {
 			    Date convertedCurrentDate = sdf.parse(json.getString(field));
 			    this.endDate = convertedCurrentDate;
 			}
+			else if(field.equals("approved_one"))
+			{
+				this.approved_one = json.getBoolean(field);
+			}
+			else if(field.equals("approved_two"))
+			{
+				this.approved_two = json.getBoolean(field);
+			}
 		}
 	}
 	
+	public String toString(){
+		return null;
+	}
 }
